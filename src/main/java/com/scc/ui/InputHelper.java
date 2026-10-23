@@ -4,16 +4,20 @@ import java.util.Scanner;
 
 public final class InputHelper {
 
-    private static final Scanner SC = new Scanner(System.in);
+    private static Scanner SC = new Scanner(System.in);
 
     private InputHelper() {
     }
 
+    /** Gitawag sa Main aron parehas ang Scanner sa tibuok app. */
+    public static void init(Scanner scanner) {
+        SC = scanner;
+    }
 
     public static String readText(String prompt) {
         while (true) {
             System.out.print(prompt);
-            if (!SC.hasNextLine()) {            // Ctrl+D / closed input
+            if (!SC.hasNextLine()) {
                 System.out.println("\nInput closed. Exiting...");
                 System.exit(0);
             }
@@ -24,7 +28,6 @@ public final class InputHelper {
             System.out.println("  [!] This field cannot be empty. Please try again.");
         }
     }
-
 
     public static int readChoice(String prompt, int min, int max) {
         while (true) {
