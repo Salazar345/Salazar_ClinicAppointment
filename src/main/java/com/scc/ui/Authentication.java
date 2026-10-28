@@ -95,8 +95,8 @@ public class Authentication {
             System.out.print("Enter username: ");
             user = sc.nextLine().trim().toLowerCase();
 
-            if (!user.endsWith("@gmail.com") || user.length() <= "@gmail.com".length() || user.contains(" ")) {
-                System.out.println("Invalid! Enter a valid Gmail without spaces (example: lito@gmail.com).");
+            if (user.isEmpty() || user.contains(" ")) {
+                System.out.println("Invalid! Username cannot be empty or contain spaces.");
             } else if (userDao.usernameExist(user)) {
                 System.out.println("Invalid! Username already taken.");
             } else {

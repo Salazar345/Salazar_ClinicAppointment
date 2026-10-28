@@ -144,29 +144,52 @@ public class UserDao {
         return list;
     }
 
-    public boolean approveUser(int userId) {
-        String sql = "UPDATE users SET status = 'APPROVED' WHERE user_id = ? AND status = 'PENDING'";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, userId);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.out.println("Approve user failed: " + e.getMessage());
-            return false;
+    public boolean approveUser(int userId){
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE user_id = ?";
+
+        try(Connection conn = DatabaseConnection.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)){
+            pstmt.setInt(1, userId);
+
+            int rowsUpdated = pstmt.executeUpdate();
+
+            if(rowsUpdated > 0){
+                System.out.println("\n -> User ID: "+userId+" Approved Successfully" );
+                return true;
+            }else {
+                System.out.println("\n -> User ID not found!");
+            }
+        }catch (SQLException e){
+            System.err.println("Error fetching users" + e.getMessage());
         }
+        return false;
     }
 
-    public boolean updateStatus(int userId, String status) {
-        String sql = "UPDATE users SET status = ? WHERE user_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status);
-            ps.setInt(2, userId);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.out.println("Update status failed: " + e.getMessage());
+    public boolean updateUserAndStatus(int userId, String newroles, String newStatus){
+
+        String sql = "UPDATE users SET roles = ?, status = ? WHERE user_id = ?";
+
+        try(
+                Connection conn = DatabaseConnection.getConnection();
+                PreparedStatement pstmt = conn.prepareStatement(sql)){
+
+            pstmt.setString(1, newroles.toUpperCase());
+            pstmt.setString(2,newStatus.toUpperCase());
+            pstmt.setInt( 3,userId);
+
+            int rowsUpdated = pstmt.executeUpdate();
+            if(rowsUpdated > 0) {
+                System.out.println("\n -> User Id:" + userId + " updated successfully!");
+                return true;
+
+            }else {
+                System.out.println(" ->User ID not found.");
+            }
             return false;
+        } catch  (SQLException e) {
+            System.err.println("Error updating user:"+e.getMessage());
         }
+        return false;
     }
 
     public boolean deleteUser(int userId) {

@@ -19,30 +19,34 @@ public class AdminMenu {
     // ===================== MAIN ADMIN MENU =====================
 
     public void show(User admin) {
-        while (true) {
-            System.out.println("\n=======================================");
-            System.out.println("             ADMIN MENU");
-            System.out.println(" User: " + admin.full_name());
-            System.out.println("=======================================");
-            System.out.println("  1. Manage User Accounts");
-            System.out.println("  2. Manage Doctor Records");
-            System.out.println("  3. View All Patients and Appointments");
-            System.out.println("  4. View Reports");
-            System.out.println("  5. View Activity Logs");
-            System.out.println("  6. Logout");
+        boolean loggedIn = true;
 
-            int choice = InputHelper.readChoice("Choose (1-6): ", 1, 6);
+        while (loggedIn) {
+            System.out.println("\n==============================");
+            System.out.println("           ADMIN MENU ");
+            System.out.println(" User: " + admin.full_name());
+            System.out.println("==============================");
+            System.out.println("1. Manage User Accounts");
+            System.out.println("2. Manage Doctor Records");
+            System.out.println("3. View All Patients and Appointments");
+            System.out.println("4. View Reports");
+            System.out.println("5. View Activity Logs");
+            System.out.println("0. Logout");
+            System.out.print("Enter choice: ");
+
+            String choice = sc.nextLine().trim();
 
             switch (choice) {
-                case 1 -> manageUserAccounts(admin);
-                case 2 -> System.out.println("\n[Manage Doctor Records] - coming soon.");
-                case 3 -> System.out.println("\n[View All Patients and Appointments] - coming soon.");
-                case 4 -> System.out.println("\n[View Reports] - coming soon.");
-                case 5 -> System.out.println("\n[View Activity Logs] - coming soon.");
-                case 6 -> {
-                    System.out.println("\nLogging out...");
-                    return;
+                case "1" -> manageUserAccounts(admin);
+                case "2" -> manageDoctorRecords();
+                case "3" -> viewPatientsAndAppointments();
+                case "4" -> reports();
+                case "5" -> activityLogs();
+                case "0" -> {
+                    System.out.println("You have been logged out. Goodbye, " + admin.full_name() + "!");
+                    loggedIn = false;
                 }
+                default -> System.out.println("-> Invalid choice. Try again.");
             }
         }
     }
@@ -51,142 +55,185 @@ public class AdminMenu {
 
     private void manageUserAccounts(User admin) {
         while (true) {
-            System.out.println("\n=======================================");
-            System.out.println("         MANAGE USER ACCOUNTS");
-            System.out.println("=======================================");
-            System.out.println("  1. View All Users");
-            System.out.println("  2. Approve / Reject Pending Accounts");
-            System.out.println("  3. Deactivate Account");
-            System.out.println("  4. Reactivate Account");
-            System.out.println("  5. Delete Account");
-            System.out.println("  6. Back");
-
-            int choice = InputHelper.readChoice("Choose (1-6): ", 1, 6);
+            System.out.println("\n===============================");
+            System.out.println("      MANAGE USER ACCOUNTS");
+            System.out.println("===============================");
+            System.out.println("[1] View All Users\n[2] View Pending Users\n[3] Approve User" +
+                    "\n[4] Update User (ROLE/STATUS)\n[5] Delete Account\n[0] Back");
+            System.out.print("Enter Choice: ");
+            String choice = sc.nextLine().trim();
 
             switch (choice) {
-                case 1 -> viewAllUsers();
-                case 2 -> handlePending();
-                case 3 -> deactivateUser(admin);
-                case 4 -> reactivateUser();
-                case 5 -> deleteUser(admin);
-                case 6 -> {
+                case "1" -> viewAllUsers();
+                case "2" -> viewPendingUsers();
+                case "3" -> approveUser();
+                case "4" -> updateUser(admin);
+                case "5" -> deleteUser(admin);
+                case "0" -> {
                     return;
                 }
+                default -> System.out.println("-> Invalid choice! 0 to 5 only.");
             }
         }
+    }
+
+    // ---------- Table display ----------
+
+    private void displayUserTable(List<User> users, String title) {
+        System.out.println("\n====================== " + title + " ======================");
+
+        if (users.isEmpty()) {
+            System.out.println("\n-> No Records.");
+            return;
+        }
+
+        String border = "+------+------------------------+------------------------------+----------------+------------+";
+        String format = "| %-4s | %-22s | %-28s | %-14s | %-10s |\n";
+
+        System.out.println();
+        System.out.println(border);
+        System.out.printf(format, "ID", "Full Name", "Username", "Role", "Status");
+        System.out.println(border);
+
+        for (User u : users) {
+            System.out.printf(format, u.id(), cut(u.full_name(), 22), cut(u.username(), 28),
+                    u.role(), u.active());
+        }
+
+        System.out.println(border);
+    }
+
+    private String cut(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max - 2) + "..";
     }
 
     // ---------- 1. View all ----------
 
     private void viewAllUsers() {
+        displayUserTable(userDao.getAllUsers(), "ALL REGISTERED USERS");
+    }
+
+    // ---------- 2. View pending ----------
+
+    private void viewPendingUsers() {
+        displayUserTable(userDao.getPendingUsers(), "PENDING APPROVALS");
+    }
+
+    // ---------- 3. Approve ----------
+
+    private void approveUser() {
+        List<User> pendingUsers = userDao.getPendingUsers();
+        displayUserTable(pendingUsers, "PENDING APPROVALS");
+
+        if (pendingUsers.isEmpty()) {
+            return;
+        }
+
+        int userId = readInput("Enter User ID to approve (0 to cancel): ");
+
+        if (userId == 0) {
+            System.out.println("-> Cancelled.");
+            return;
+        }
+
+        User target = pendingUsers.stream()
+                .filter(u -> u.id() == userId)
+                .findFirst()
+                .orElse(null);
+
+        if (target == null) {
+            System.out.println(" -> [ERROR] User ID not found in the pending list.");
+            return;
+        }
+
+        if (userDao.approveUser(target.id())) {
+            System.out.println(" -> " + target.full_name() + " has been APPROVED.");
+        } else {
+            System.out.println(" -> [ERROR] Failed to approve user.");
+        }
+    }
+
+    // ---------- 4. Update role / status ----------
+
+    private void updateUser(User currentAdmin) {
         List<User> users = userDao.getAllUsers();
-        System.out.println("\n--- ALL USER ACCOUNTS ---");
-        printUsers(users);
-        InputHelper.pause();
+        displayUserTable(users, "SELECT USER TO UPDATE");
+
+        if (users.isEmpty()) {
+            return;
+        }
+
+        int userId = readInput("Enter user ID to update (0 to cancel): ");
+
+        if (userId == 0) {
+            System.out.println(" -> Operation Cancelled.");
+            return;
+        }
+
+        boolean exists = users.stream().anyMatch(u -> u.id() == userId);
+        if (!exists) {
+            System.out.println(" -> [ERROR] User ID not found.");
+            return;
+        }
+
+        if (userId == currentAdmin.id()) {
+            System.out.println(" -> [WARNING] Modifying current active Admin is Restricted.");
+            return;
+        }
+
+        String newRole = readValidRole();
+        if (newRole == null) {
+            System.out.println(" -> Operation Cancelled.");
+            return;
+        }
+
+        String newStatus = readValidStatus();
+        if (newStatus == null) {
+            System.out.println(" -> Operation Cancelled.");
+            return;
+        }
+
+        if (!confirm("Update user " + userId + " to role = " + newRole + ", status = " + newStatus + "?")) {
+            System.out.println(" -> Operation Cancelled.");
+            return;
+        }
+
+        // DAO already prints success / not found messages
+        userDao.updateUserAndStatus(userId, newRole, newStatus);
     }
 
-    // ---------- 2. Approve / Reject ----------
+    private String readValidRole() {
+        while (true) {
+            System.out.print("Enter Role (ADMIN/DOCTOR/RECEPTIONIST/TRIAGE [0 to cancel]): ");
+            String role = sc.nextLine().trim().toUpperCase();
 
-    private void handlePending() {
-        List<User> pending = userDao.getPendingUsers();
-        System.out.println("\n--- PENDING ACCOUNTS ---");
-
-        if (pending.isEmpty()) {
-            System.out.println("  No pending accounts.");
-            return;
-        }
-
-        printUsers(pending);
-
-        User target = pickUser("Enter User ID to review (0 to cancel): ", pending);
-        if (target == null) return;
-
-        System.out.println("\nReviewing: " + target.full_name() + " (" + target.username() + ") - " + target.role());
-        System.out.println("  1. Approve");
-        System.out.println("  2. Reject");
-        System.out.println("  0. Cancel");
-        int action = InputHelper.readChoice("Choose (0-2): ", 0, 2);
-
-        switch (action) {
-            case 1 -> {
-                if (userDao.approveUser(target.id())) {
-                    System.out.println("\n -> " + target.full_name() + " has been APPROVED.");
-                } else {
-                    System.out.println("\n -> Failed to approve user.");
-                }
+            if (role.equals("0") || role.equals("CANCEL")) {
+                return null;
             }
-            case 2 -> {
-                if (InputHelper.confirm("Reject " + target.full_name() + "?")
-                        && userDao.updateStatus(target.id(), "REJECTED")) {
-                    System.out.println("\n -> " + target.full_name() + " has been REJECTED.");
-                } else {
-                    System.out.println("\n -> Cancelled / failed.");
-                }
+
+            if (role.equals("ADMIN") || role.equals("DOCTOR")
+                    || role.equals("RECEPTIONIST") || role.equals("TRIAGE")) {
+                return role;
             }
-            default -> System.out.println("\n -> Cancelled.");
-        }
-    }
 
-    // ---------- 3. Deactivate ----------
-
-    private void deactivateUser(User admin) {
-        List<User> approved = userDao.getAllUsers().stream()
-                .filter(u -> "APPROVED".equalsIgnoreCase(u.active()))
-                .filter(u -> u.id() != admin.id())          // dili ma-deactivate ang kaugalingon
-                .toList();
-
-        System.out.println("\n--- ACTIVE ACCOUNTS ---");
-        if (approved.isEmpty()) {
-            System.out.println("  No accounts available to deactivate.");
-            return;
-        }
-        printUsers(approved);
-
-        User target = pickUser("Enter User ID to deactivate (0 to cancel): ", approved);
-        if (target == null) return;
-
-        if (isLastActiveAdmin(target)) {
-            System.out.println("\n -> Cannot deactivate the last active ADMIN.");
-            return;
-        }
-
-        if (InputHelper.confirm("Deactivate " + target.full_name() + "?")) {
-            if (userDao.updateStatus(target.id(), "DEACTIVATED")) {
-                System.out.println("\n -> " + target.full_name() + " has been DEACTIVATED.");
-            } else {
-                System.out.println("\n -> Failed to deactivate user.");
-            }
-        } else {
-            System.out.println("\n -> Cancelled.");
+            System.out.println(" -> [ERROR] Invalid Role.");
         }
     }
 
-    // ---------- 4. Reactivate ----------
+    private String readValidStatus() {
+        while (true) {
+            System.out.print("Enter Status (APPROVED/PENDING [0 to cancel]): ");
+            String status = sc.nextLine().trim().toUpperCase();
 
-    private void reactivateUser() {
-        List<User> inactive = userDao.getAllUsers().stream()
-                .filter(u -> "DEACTIVATED".equalsIgnoreCase(u.active())
-                        || "REJECTED".equalsIgnoreCase(u.active()))
-                .toList();
-
-        System.out.println("\n--- DEACTIVATED / REJECTED ACCOUNTS ---");
-        if (inactive.isEmpty()) {
-            System.out.println("  No accounts to reactivate.");
-            return;
-        }
-        printUsers(inactive);
-
-        User target = pickUser("Enter User ID to reactivate (0 to cancel): ", inactive);
-        if (target == null) return;
-
-        if (InputHelper.confirm("Reactivate " + target.full_name() + "?")) {
-            if (userDao.updateStatus(target.id(), "APPROVED")) {
-                System.out.println("\n -> " + target.full_name() + " is now APPROVED.");
-            } else {
-                System.out.println("\n -> Failed to reactivate user.");
+            if (status.equals("0") || status.equals("CANCEL")) {
+                return null;
             }
-        } else {
-            System.out.println("\n -> Cancelled.");
+
+            if (status.equals("APPROVED") || status.equals("PENDING")) {
+                return status;
+            }
+
+            System.out.println(" -> [ERROR] Invalid Status. Must be APPROVED or PENDING.");
         }
     }
 
@@ -194,79 +241,80 @@ public class AdminMenu {
 
     private void deleteUser(User admin) {
         List<User> others = userDao.getAllUsers().stream()
-                .filter(u -> u.id() != admin.id())          // dili ma-delete ang kaugalingon
+                .filter(u -> u.id() != admin.id())   // can't delete yourself
                 .toList();
 
-        System.out.println("\n--- DELETE ACCOUNT ---");
+        displayUserTable(others, "DELETE ACCOUNT");
+
         if (others.isEmpty()) {
-            System.out.println("  No other accounts to delete.");
-            return;
-        }
-        printUsers(others);
-
-        User target = pickUser("Enter User ID to delete (0 to cancel): ", others);
-        if (target == null) return;
-
-        if (isLastActiveAdmin(target)) {
-            System.out.println("\n -> Cannot delete the last active ADMIN.");
             return;
         }
 
-        System.out.println("\n  WARNING: This permanently deletes " + target.full_name() + ".");
-        if (InputHelper.confirm("Are you sure?")) {
-            if (userDao.deleteUser(target.id())) {
-                System.out.println("\n -> Account deleted.");
-            } else {
-                System.out.println("\n -> Failed to delete user.");
-            }
+        int userId = readInput("Enter User ID to delete (0 to cancel): ");
+
+        if (userId == 0) {
+            System.out.println(" -> Cancelled.");
+            return;
+        }
+
+        User target = others.stream()
+                .filter(u -> u.id() == userId)
+                .findFirst()
+                .orElse(null);
+
+        if (target == null) {
+            System.out.println(" -> [ERROR] User ID not found.");
+            return;
+        }
+
+        System.out.println("\n [WARNING] This permanently deletes " + target.full_name() + ".");
+        if (!confirm("Are you sure?")) {
+            System.out.println(" -> Cancelled.");
+            return;
+        }
+
+        if (userDao.deleteUser(target.id())) {
+            System.out.println(" -> Account deleted.");
         } else {
-            System.out.println("\n -> Cancelled.");
+            System.out.println(" -> [ERROR] Failed to delete user.");
         }
+    }
+
+    // ===================== COMING SOON =====================
+
+    private void manageDoctorRecords() {
+        System.out.println("\n=== MANAGE DOCTOR RECORDS ===");
+    }
+
+    private void viewPatientsAndAppointments() {
+        System.out.println("\n=== PATIENTS AND APPOINTMENTS ===");
+    }
+
+    private void reports() {
+        System.out.println("\n=== REPORTS ===");
+    }
+
+    private void activityLogs() {
+        System.out.println("\n=== ACTIVITY LOGS ===");
     }
 
     // ===================== HELPERS =====================
 
-    /** Mo-prompt og User ID gikan sa gihatag nga list. Return null kung 0 (cancel). */
-    private User pickUser(String prompt, List<User> options) {
+    private int readInput(String prompt) {
         while (true) {
-            int id = InputHelper.readChoice(prompt, 0, Integer.MAX_VALUE);
-            if (id == 0) {
-                System.out.println("\n -> Cancelled.");
-                return null;
+            System.out.print(prompt);
+            String input = sc.nextLine().trim();
+
+            try {
+                return Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println(" -> [ERROR] Please enter a valid numeric ID.");
             }
-            for (User u : options) {
-                if (u.id() == id) return u;
-            }
-            System.out.println("  [!] ID " + id + " is not in the list above. Try again.");
         }
     }
 
-    /** True kung ang target ADMIN ug siya na lang ang active admin. */
-    private boolean isLastActiveAdmin(User target) {
-        if (!"ADMIN".equalsIgnoreCase(target.role())) return false;
-        long activeAdmins = userDao.getAllUsers().stream()
-                .filter(u -> "ADMIN".equalsIgnoreCase(u.role()))
-                .filter(u -> "APPROVED".equalsIgnoreCase(u.active()))
-                .count();
-        return activeAdmins <= 1;
-    }
-
-    private void printUsers(List<User> users) {
-        if (users.isEmpty()) {
-            System.out.println("  (no records)");
-            return;
-        }
-        System.out.println("-".repeat(86));
-        System.out.printf("%-5s %-22s %-28s %-14s %-12s%n", "ID", "FULL NAME", "USERNAME", "ROLE", "STATUS");
-        System.out.println("-".repeat(86));
-        for (User u : users) {
-            System.out.printf("%-5d %-22s %-28s %-14s %-12s%n",
-                    u.id(), cut(u.full_name(), 22), cut(u.username(), 28), u.role(), u.active());
-        }
-        System.out.println("-".repeat(86));
-    }
-
-    private String cut(String s, int max) {
-        return s.length() <= max ? s : s.substring(0, max - 2) + "..";
+    private boolean confirm(String message) {
+        System.out.print(message + " (Y/N): ");
+        return sc.nextLine().trim().equalsIgnoreCase("Y");
     }
 }
