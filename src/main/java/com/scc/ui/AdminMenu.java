@@ -2,6 +2,7 @@ package com.scc.ui;
 
 import com.scc.dao.ActivityLogDao;
 import com.scc.dao.UserDao;
+import com.scc.model.ActivityLogs;
 import com.scc.model.User;
 
 import java.util.List;
@@ -42,7 +43,7 @@ public class AdminMenu {
                 case "2" -> manageDoctorRecords();
                 case "3" -> viewPatientsAndAppointments();
                 case "4" -> reports();
-                case "5" -> activityLogs();
+                case "5" -> activityLog();
                 case "0" -> {
                     System.out.println("You have been logged out. Goodbye, " + admin.full_name() + "!");
                     activityDao.log(admin.id(), "LOGOUT", "users", admin.id(),
@@ -385,5 +386,101 @@ public class AdminMenu {
     private boolean confirm(String message) {
         System.out.print(message + " (Y/N): ");
         return sc.nextLine().trim().equalsIgnoreCase("Y");
+    }
+
+    private void displayLogTable(List<ActivityLogs> logs, String title) {
+        System.out.println("\n====================== " + title + " ======================");
+
+        if (logs.isEmpty()) {
+            System.out.println("\n-> No Records.");
+            return;
+        }
+
+        String border = "+-------+-------+----------------+------------+--------+----------------------------------------+---------------------+";
+        String format = "| %-5s | %-5s | %-14s | %-10s | %-6s | %-38s | %-19s |\n";
+
+        System.out.println();
+        System.out.println(border);
+        System.out.printf(format, "LogID", "User", "Action", "Table", "Rec ID", "Details", "Timestamp");
+        System.out.println(border);
+
+        for (ActivityLogs l : logs) {
+            System.out.printf(format,
+                    l.log_id(),
+                    l.user_id() != null ? l.user_id() : "N/A",
+                    cut(l.action(), 14),
+                    l.table_affected() != null ? cut(l.table_affected(), 10) : "N/A",
+                    l.record_id() != null ? l.record_id() : "N/A",
+                    l.details() != null ? cut(l.details(), 38) : "",
+                    l.log_timestamp());
+        }
+
+        System.out.println(border);
+        System.out.println(" Total: " + logs.size() + " record(s)");
+    }
+
+    private void activityLog() {
+        List<ActivityLogs> current = activityDao.getRecentLogs(20);
+        String title = "RECENT LOGS (LAST 20)";
+
+        while (true) {
+            displayLogTable(current, title);
+
+            System.out.println("\n--------- FILTER ---------");
+            System.out.println("( [1] Show All | [2] Filter by Action | [3] Filter by Table | [4] Refresh (Recent 20) | [0] Back )");
+            System.out.print("Enter Choice: ");
+            String choice = sc.nextLine().trim();
+
+            switch (choice) {
+                case "1" -> {
+                    current = activityDao.getAllLogs();
+                    title = "ALL LOGS";
+                }
+                case "2" -> {
+                    String action = readFilterAction();
+                    if (action != null) {
+                        current = activityDao.getLogsByAction(action);
+                        title = "LOGS: ACTION = " + action;
+                    }
+                }
+                case "3" -> {
+                    String table = readFilterTable();
+                    if (table != null) {
+                        current = activityDao.getLogsByTable(table);
+                        title = "LOGS: TABLE = " + table;
+                    }
+                }
+                case "4" -> {
+                    current = activityDao.getRecentLogs(20);
+                    title = "RECENT LOGS (LAST 20)";
+                }
+                case "0" -> {
+                    return;
+                }
+                default -> System.out.println("-> Invalid choice! 0 to 4 only.");
+            }
+        }
+    }
+
+    private String readFilterAction() {
+        System.out.println("\nActions: LOGIN, LOGOUT, LOGIN_FAILED, REGISTER, CREATE, UPDATE, DELETE, APPROVE");
+        System.out.print("Enter Action (0 to cancel): ");
+        String action = sc.nextLine().trim().toUpperCase();
+        if (action.equals("0") || action.isEmpty()) {
+            System.out.println(" -> Cancelled.");
+            return null;
+        }
+        return action;
+    }
+
+    private String readFilterTable() {
+        System.out.println("\nTables: users, patients, doctors, appointments");
+        System.out.print("Enter Table (0 to cancel): ");
+        String table = sc.nextLine().trim().toLowerCase();
+        if (table.equals("0") || table.isEmpty()) {
+            System.out.println(" -> Cancelled.");
+            return null;
+        }
+        return table;
     }
 }
