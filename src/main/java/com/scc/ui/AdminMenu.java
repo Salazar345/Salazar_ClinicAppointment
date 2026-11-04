@@ -43,7 +43,7 @@ public class AdminMenu {
                 case "2" -> manageDoctorRecords();
                 case "3" -> viewPatientsAndAppointments();
                 case "4" -> reports();
-                case "5" -> activityLog();
+                case "5" -> activityLogs();
                 case "0" -> {
                     System.out.println("You have been logged out. Goodbye, " + admin.full_name() + "!");
                     activityDao.log(admin.id(), "LOGOUT", "users", admin.id(),
@@ -206,25 +206,39 @@ public class AdminMenu {
             return;
         }
 
-        if (!confirm("Add user '" + username + "' (" + fullName + ") as " + role + "?")) {
+        String status = readValidStatus();
+        if (status == null) {
+            System.out.println(" -> Cancelled.");
+            return;
+        }
+
+        if (!confirm("Add user '" + username + "' (" + fullName + ") as " + role
+                + ", status = " + status + "?")) {
             System.out.println(" -> Cancelled.");
             return;
         }
 
         boolean added = userDao.registerUser(fullName, username, password, role);
-        if (added) {
-            int newId = userDao.getUserIdByUsername(username);
-            Integer recordId = null;
-            if (newId > 0) {
-                userDao.approveUser(newId);
-                recordId = newId;
-            }
-            System.out.println(" -> User added successfully.");
-            activityDao.log(admin.id(), "CREATE", "users", recordId,
-                    "Admin added " + role + " account: " + username);
-        } else {
+        if (!added) {
             System.out.println(" -> [ERROR] Failed to add user.");
+            return;
         }
+
+        int newId = userDao.getUserIdByUsername(username);
+        Integer recordId = newId > 0 ? newId : null;
+
+        if (status.equals("APPROVED")) {
+            if (newId > 0 && userDao.approveUser(newId)) {
+                System.out.println(" -> User added and APPROVED.");
+            } else {
+                System.out.println(" -> [WARNING] User added, but approval failed. Approve manually.");
+            }
+        } else {
+            System.out.println(" -> User added as PENDING.");
+        }
+
+        activityDao.log(admin.id(), "CREATE", "users", recordId,
+                "Admin added " + role + " account: " + username + " (" + status + ")");
     }
 
     private void updateUser(User currentAdmin) {
@@ -366,9 +380,6 @@ public class AdminMenu {
         System.out.println("\n=== REPORTS ===");
     }
 
-    private void activityLogs() {
-        System.out.println("\n=== ACTIVITY LOGS ===");
-    }
 
     private int readInput(String prompt) {
         while (true) {
@@ -419,7 +430,7 @@ public class AdminMenu {
         System.out.println(" Total: " + logs.size() + " record(s)");
     }
 
-    private void activityLog() {
+    private void activityLogs() {
         List<ActivityLogs> current = activityDao.getRecentLogs(20);
         String title = "RECENT LOGS (LAST 20)";
 
@@ -463,7 +474,7 @@ public class AdminMenu {
     }
 
     private String readFilterAction() {
-        System.out.println("\nActions: LOGIN, LOGOUT, LOGIN_FAILED, REGISTER, CREATE, UPDATE, DELETE, APPROVE");
+        System.out.println("\nActions: LOGIN, LOGOUT, LOGIN_FAILED, REGISTER, CREATE, UPDATE, DELETE, APPROVED");
         System.out.print("Enter Action (0 to cancel): ");
         String action = sc.nextLine().trim().toUpperCase();
         if (action.equals("0") || action.isEmpty()) {
