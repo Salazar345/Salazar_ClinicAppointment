@@ -1,5 +1,6 @@
 package com.scc.ui;
 
+import com.scc.dao.ActivityLogDao;
 import com.scc.dao.UserDao;
 import com.scc.model.User;
 
@@ -9,14 +10,14 @@ import java.util.Scanner;
 public class AdminMenu {
 
     private final UserDao userDao;
+    private final ActivityLogDao activityDao;
     private final Scanner sc;
 
-    public AdminMenu(UserDao userDao, Scanner sc) {
+    public AdminMenu(UserDao userDao, ActivityLogDao activityDao, Scanner sc) {
         this.userDao = userDao;
+        this.activityDao = activityDao;
         this.sc = sc;
     }
-
-    // ===================== MAIN ADMIN MENU =====================
 
     public void show(User admin) {
         boolean loggedIn = true;
@@ -24,7 +25,7 @@ public class AdminMenu {
         while (loggedIn) {
             System.out.println("\n==============================");
             System.out.println("           ADMIN MENU ");
-            System.out.println(" User: " + admin.full_name());
+            System.out.println("    User: " + admin.full_name());
             System.out.println("==============================");
             System.out.println("1. Manage User Accounts");
             System.out.println("2. Manage Doctor Records");
@@ -44,6 +45,8 @@ public class AdminMenu {
                 case "5" -> activityLogs();
                 case "0" -> {
                     System.out.println("You have been logged out. Goodbye, " + admin.full_name() + "!");
+                    activityDao.log(admin.id(), "LOGOUT", "users", admin.id(),
+                            admin.full_name() + " logged out");
                     loggedIn = false;
                 }
                 default -> System.out.println("-> Invalid choice. Try again.");
@@ -51,33 +54,30 @@ public class AdminMenu {
         }
     }
 
-    // ===================== MANAGE USER ACCOUNTS =====================
-
     private void manageUserAccounts(User admin) {
         while (true) {
             System.out.println("\n===============================");
             System.out.println("      MANAGE USER ACCOUNTS");
             System.out.println("===============================");
-            System.out.println("[1] View All Users\n[2] View Pending Users\n[3] Approve User" +
-                    "\n[4] Update User (ROLE/STATUS)\n[5] Delete Account\n[0] Back");
+            System.out.println("[1] Add User\n[2] View All Users\n[3] View Pending Users\n[4] Approve User" +
+                    "\n[5] Update User (ROLE/STATUS)\n[6] Delete Account\n[0] Back");
             System.out.print("Enter Choice: ");
             String choice = sc.nextLine().trim();
 
             switch (choice) {
-                case "1" -> viewAllUsers();
-                case "2" -> viewPendingUsers();
-                case "3" -> approveUser();
-                case "4" -> updateUser(admin);
-                case "5" -> deleteUser(admin);
+                case "1" -> addUser(admin);
+                case "2" -> viewAllUsers();
+                case "3" -> viewPendingUsers();
+                case "4" -> approveUser(admin);
+                case "5" -> updateUser(admin);
+                case "6" -> deleteUser(admin);
                 case "0" -> {
                     return;
                 }
-                default -> System.out.println("-> Invalid choice! 0 to 5 only.");
+                default -> System.out.println("-> Invalid choice! 0 to 6 only.");
             }
         }
     }
-
-    // ---------- Table display ----------
 
     private void displayUserTable(List<User> users, String title) {
         System.out.println("\n====================== " + title + " ======================");
@@ -97,7 +97,7 @@ public class AdminMenu {
 
         for (User u : users) {
             System.out.printf(format, u.id(), cut(u.full_name(), 22), cut(u.username(), 28),
-                    u.role(), u.active());
+                    u.role(), u.status());
         }
 
         System.out.println(border);
@@ -107,21 +107,15 @@ public class AdminMenu {
         return s.length() <= max ? s : s.substring(0, max - 2) + "..";
     }
 
-    // ---------- 1. View all ----------
-
     private void viewAllUsers() {
         displayUserTable(userDao.getAllUsers(), "ALL REGISTERED USERS");
     }
-
-    // ---------- 2. View pending ----------
 
     private void viewPendingUsers() {
         displayUserTable(userDao.getPendingUsers(), "PENDING APPROVALS");
     }
 
-    // ---------- 3. Approve ----------
-
-    private void approveUser() {
+    private void approveUser(User admin) {
         List<User> pendingUsers = userDao.getPendingUsers();
         displayUserTable(pendingUsers, "PENDING APPROVALS");
 
@@ -148,12 +142,89 @@ public class AdminMenu {
 
         if (userDao.approveUser(target.id())) {
             System.out.println(" -> " + target.full_name() + " has been APPROVED.");
+            activityDao.log(admin.id(), "APPROVED", "users", target.id(), "Approved account of " + target.full_name());
         } else {
             System.out.println(" -> [ERROR] Failed to approve user.");
         }
     }
 
-    // ---------- 4. Update role / status ----------
+    private void addUser(User admin) {
+        System.out.println("\n===== ADD USER =====");
+
+        System.out.print("Enter Full Name (0 to cancel): ");
+        String fullName = sc.nextLine().trim();
+        if (fullName.equals("0")) {
+            System.out.println(" -> Cancelled.");
+            return;
+        }
+        if (fullName.isEmpty()) {
+            System.out.println(" -> [ERROR] Full name cannot be empty.");
+            return;
+        }
+
+        String username;
+        while (true) {
+            System.out.print("Enter Username (0 to cancel): ");
+            username = sc.nextLine().trim().toLowerCase();
+            if (username.equals("0")) {
+                System.out.println(" -> Cancelled.");
+                return;
+            }
+            if (username.isEmpty() || username.contains(" ")) {
+                System.out.println(" -> [ERROR] Username cannot be empty or contain spaces.");
+            } else if (userDao.usernameExist(username)) {
+                System.out.println(" -> [ERROR] Username already taken.");
+            } else {
+                break;
+            }
+        }
+
+        String password;
+        while (true) {
+            System.out.print("Enter Password (min 5 chars, 0 to cancel): ");
+            password = sc.nextLine().trim();
+            if (password.equals("0")) {
+                System.out.println(" -> Cancelled.");
+                return;
+            }
+            if (password.length() < 5) {
+                System.out.println(" -> [ERROR] Password must be at least 5 characters.");
+                continue;
+            }
+            System.out.print("Confirm Password: ");
+            if (!sc.nextLine().trim().equals(password)) {
+                System.out.println(" -> [ERROR] Passwords do not match.");
+                continue;
+            }
+            break;
+        }
+
+        String role = readValidRole();
+        if (role == null) {
+            System.out.println(" -> Cancelled.");
+            return;
+        }
+
+        if (!confirm("Add user '" + username + "' (" + fullName + ") as " + role + "?")) {
+            System.out.println(" -> Cancelled.");
+            return;
+        }
+
+        boolean added = userDao.registerUser(fullName, username, password, role);
+        if (added) {
+            int newId = userDao.getUserIdByUsername(username);
+            Integer recordId = null;
+            if (newId > 0) {
+                userDao.approveUser(newId);
+                recordId = newId;
+            }
+            System.out.println(" -> User added successfully.");
+            activityDao.log(admin.id(), "CREATE", "users", recordId,
+                    "Admin added " + role + " account: " + username);
+        } else {
+            System.out.println(" -> [ERROR] Failed to add user.");
+        }
+    }
 
     private void updateUser(User currentAdmin) {
         List<User> users = userDao.getAllUsers();
@@ -198,8 +269,10 @@ public class AdminMenu {
             return;
         }
 
-        // DAO already prints success / not found messages
-        userDao.updateUserAndStatus(userId, newRole, newStatus);
+        if (userDao.updateUserAndStatus(userId, newRole, newStatus)) {
+            activityDao.log(currentAdmin.id(), "UPDATE", "users", userId,
+                    "Changed role to " + newRole + ", status to " + newStatus);
+        }
     }
 
     private String readValidRole() {
@@ -237,11 +310,9 @@ public class AdminMenu {
         }
     }
 
-    // ---------- 5. Delete ----------
-
     private void deleteUser(User admin) {
         List<User> others = userDao.getAllUsers().stream()
-                .filter(u -> u.id() != admin.id())   // can't delete yourself
+                .filter(u -> u.id() != admin.id())
                 .toList();
 
         displayUserTable(others, "DELETE ACCOUNT");
@@ -275,12 +346,12 @@ public class AdminMenu {
 
         if (userDao.deleteUser(target.id())) {
             System.out.println(" -> Account deleted.");
+            activityDao.log(admin.id(), "DELETE", "users", target.id(),
+                    "Deleted account of " + target.full_name() + " (" + target.role() + ")");
         } else {
             System.out.println(" -> [ERROR] Failed to delete user.");
         }
     }
-
-    // ===================== COMING SOON =====================
 
     private void manageDoctorRecords() {
         System.out.println("\n=== MANAGE DOCTOR RECORDS ===");
@@ -297,8 +368,6 @@ public class AdminMenu {
     private void activityLogs() {
         System.out.println("\n=== ACTIVITY LOGS ===");
     }
-
-    // ===================== HELPERS =====================
 
     private int readInput(String prompt) {
         while (true) {

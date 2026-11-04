@@ -1,5 +1,6 @@
 package com.scc.ui;
 
+import com.scc.dao.ActivityLogDao;
 import com.scc.dao.UserDao;
 import com.scc.model.User;
 
@@ -8,10 +9,12 @@ import java.util.Scanner;
 public class Authentication {
 
     private final UserDao userDao;
+    private final ActivityLogDao activityDao;
     private final Scanner sc;
 
-    public Authentication(UserDao userDao, Scanner sc) {
+    public Authentication(UserDao userDao, ActivityLogDao activityDao, Scanner sc) {
         this.userDao = userDao;
+        this.activityDao = activityDao;
         this.sc = sc;
     }
 
@@ -63,16 +66,25 @@ public class Authentication {
 
         User loggedIn = userDao.login(user, pass);
 
-        if (loggedIn != null) {
-            System.out.println("\nSuccessfully Login");
-            System.out.println("\n -> Welcome " + loggedIn.full_name() + " | ROLE: " + loggedIn.role());
-            switch (loggedIn.role()) {
-                case "ADMIN"        -> new AdminMenu(userDao, sc).show(loggedIn);
-                case "DOCTOR"       -> new DoctorMenu(userDao, sc).show(loggedIn);
-                case "RECEPTIONIST" -> new ReceptionistMenu(userDao, sc).show(loggedIn);
-                case "TRIAGE"       -> new TriageMenu(userDao, sc).show(loggedIn);
-                default             -> System.out.println("Unknown role: " + loggedIn.role());
-            }
+        if (loggedIn == null) {
+            int existingId = userDao.getUserIdByUsername(user.toLowerCase());
+            activityDao.log(existingId > 0 ? existingId : null, "LOGIN_FAILED", "users",
+                    existingId > 0 ? existingId : null,
+                    "Failed login attempt for username: " + user);
+            return;
+        }
+
+        System.out.println("\nSuccessfully Login");
+        System.out.println("\n -> Welcome " + loggedIn.full_name() + " | ROLE: " + loggedIn.role());
+        activityDao.log(loggedIn.id(), "LOGIN", "users", loggedIn.id(),
+                loggedIn.username() + " logged in as " + loggedIn.role());
+
+        switch (loggedIn.role()) {
+            case "ADMIN"        -> new AdminMenu(userDao, activityDao, sc).show(loggedIn);
+            case "DOCTOR"       -> new DoctorMenu(userDao, activityDao, sc).show(loggedIn);
+            case "RECEPTIONIST" -> new ReceptionistMenu(userDao, activityDao, sc).show(loggedIn);
+            case "TRIAGE"       -> new TriageMenu(userDao, activityDao, sc).show(loggedIn);
+            default             -> System.out.println("Unknown role: " + loggedIn.role());
         }
     }
 
@@ -135,30 +147,35 @@ public class Authentication {
         String role;
         while (true) {
             System.out.println("\n-- Select Role --");
-            System.out.println("[1] ADMIN");
-            System.out.println("[2] DOCTOR");
-            System.out.println("[3] RECEPTIONIST");
-            System.out.println("[4] TRIAGE");
+            System.out.println("[1] DOCTOR");
+            System.out.println("[2] RECEPTIONIST");
+            System.out.println("[3] TRIAGE");
             System.out.print("Enter Choice: ");
             String roleChoice = sc.nextLine().trim();
 
             if (roleChoice.equals("1")) {
-                role = "ADMIN";
-                break;
-            } else if (roleChoice.equals("2")) {
                 role = "DOCTOR";
                 break;
-            } else if (roleChoice.equals("3")) {
+            } else if (roleChoice.equals("2")) {
                 role = "RECEPTIONIST";
                 break;
-            } else if (roleChoice.equals("4")) {
+            } else if (roleChoice.equals("3")) {
                 role = "TRIAGE";
                 break;
             } else {
-                System.out.println("Invalid! Please select 1, 2, 3, or 4 only.");
+                System.out.println("Invalid! Please select 1, 2, or 3 only.");
             }
         }
 
-        userDao.registerUser(fullName, user, pass, role);
+        if (userDao.registerUser(fullName, user, pass, role)) {
+            System.out.println("\n -> Successful Registration, Waiting for Approval!");
+            int newId = userDao.getUserIdByUsername(user);
+            if (newId > 0) {
+                activityDao.log(newId, "REGISTER", "users", newId,
+                        "New " + role + " account registered: " + user);
+            }
+        } else {
+            System.out.println("\n -> [ERROR] Registration failed.");
+        }
     }
 }

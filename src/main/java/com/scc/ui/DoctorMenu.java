@@ -1,5 +1,6 @@
 package com.scc.ui;
 
+import com.scc.dao.ActivityLogDao;
 import com.scc.dao.UserDao;
 import com.scc.model.User;
 
@@ -8,10 +9,12 @@ import java.util.Scanner;
 public class DoctorMenu {
 
     private final UserDao userdao;
+    private final ActivityLogDao activityDao;
     private final Scanner sc;
 
-    public DoctorMenu(UserDao userDao, Scanner sc){
+    public DoctorMenu(UserDao userDao, ActivityLogDao activityDao,Scanner sc){
         this.userdao = userDao;
+        this.activityDao = activityDao;
         this.sc = sc;
     }
 
@@ -34,6 +37,8 @@ public class DoctorMenu {
                 case 4 -> {
                     if (InputHelper.confirm("Are you sure you want to logout?")) {
                         System.out.println("Goodbye, " + doctor.username() + "! You are logged out.");
+                        activityDao.log(doctor.id(), "LOGOUT", "users", doctor.id(),
+                                doctor.full_name() + " logged out");
                         return;   // back to the main menu
                     }
                 }

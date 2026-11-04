@@ -1,18 +1,21 @@
 package com.scc.ui;
 
+import com.scc.dao.ActivityLogDao;
 import com.scc.dao.UserDao;
 import com.scc.model.User;
 
 import java.util.Scanner;
 
-/** TRIAGE / NURSE MENU (menu only for now - CRUD will be added later). */
+
 public class TriageMenu {
 
     private final UserDao userDao;
+    private final ActivityLogDao activityDao;
     private final Scanner sc;
 
-    public TriageMenu(UserDao userDao, Scanner sc){
+    public TriageMenu(UserDao userDao, ActivityLogDao activityDao, Scanner sc){
         this.userDao = userDao;
+        this.activityDao = activityDao;
         this.sc = sc;
     }
 
@@ -36,6 +39,8 @@ public class TriageMenu {
                 case 4 -> {
                     if (InputHelper.confirm("Are you sure you want to logout?")) {
                         System.out.println("Goodbye, " + triage.username() + "! You are logged out.");
+                        activityDao.log(triage.id(), "LOGOUT", "users", triage.id(),
+                                triage.full_name() + " logged out");
                         return;
                     }
                 }

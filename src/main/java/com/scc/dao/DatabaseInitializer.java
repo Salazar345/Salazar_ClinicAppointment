@@ -18,9 +18,23 @@ public class DatabaseInitializer {
             )
             """;
 
+        String logsSql = """
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                log_id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id        INTEGER,
+                action         TEXT NOT NULL,
+                table_affected TEXT,
+                record_id      INTEGER,
+                details        TEXT,
+                log_timestamp  TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+            )
+            """;
+
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
+            stmt.execute(logsSql);
             System.out.println("-> Database tables verified.");
         } catch (SQLException e) {
             System.err.println("Error creating tables: " + e.getMessage());
