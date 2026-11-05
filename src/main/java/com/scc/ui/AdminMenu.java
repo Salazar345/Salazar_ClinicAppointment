@@ -370,16 +370,18 @@ public class AdminMenu {
 
     private void manageDoctorRecords() {
         System.out.println("\n=== MANAGE DOCTOR RECORDS ===");
+        new DoctorRecordsMenu(userDao, activityDao, sc).show();
     }
 
     private void viewPatientsAndAppointments() {
         System.out.println("\n=== PATIENTS AND APPOINTMENTS ===");
+        new PatientAppointmentsMenu(sc).show();
     }
 
     private void reports() {
         System.out.println("\n=== REPORTS ===");
+        new ReportsMenu(sc).show();
     }
-
 
     private int readInput(String prompt) {
         while (true) {
