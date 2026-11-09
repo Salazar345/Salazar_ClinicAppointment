@@ -2,7 +2,6 @@ package com.scc.ui;
 
 import com.scc.model.Appointment;
 import com.scc.model.Patient;
-import com.scc.model.TriageRecord;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -145,17 +144,5 @@ public class ClinicUi {
         }
         System.out.println(border);
         System.out.println(" Total: " + list.size() + " record(s)");
-    }
-
-    public void printVitals(TriageRecord r) {
-        System.out.println(" Blood Pressure   : " + orNA(r.blood_pressure()));
-        System.out.println(" Temperature (C)  : " + (r.temperature() != null ? r.temperature() : "N/A"));
-        System.out.println(" Pulse (bpm)      : " + (r.pulse_rate() != null ? r.pulse_rate() : "N/A"));
-        System.out.println(" Respiratory Rate : " + (r.respiratory_rate() != null ? r.respiratory_rate() : "N/A"));
-        System.out.println(" Weight (kg)      : " + (r.weight_kg() != null ? r.weight_kg() : "N/A"));
-        System.out.println(" Height (cm)      : " + (r.height_cm() != null ? r.height_cm() : "N/A"));
-        System.out.println(" Notes            : " + orNA(r.notes()));
-        System.out.println(" Triage Status    : " + r.triage_status());
-        System.out.println(" Last Updated     : " + orNA(r.updated_at()));
     }
 }

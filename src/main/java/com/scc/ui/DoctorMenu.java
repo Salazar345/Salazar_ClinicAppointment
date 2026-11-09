@@ -4,12 +4,10 @@ import com.scc.dao.ActivityLogDao;
 import com.scc.dao.AppointmentManageDao;
 import com.scc.dao.DoctorDao;
 import com.scc.dao.PatientDao;
-import com.scc.dao.TriageDao;
 import com.scc.dao.UserDao;
 import com.scc.model.Appointment;
 import com.scc.model.Doctor;
 import com.scc.model.Patient;
-import com.scc.model.TriageRecord;
 import com.scc.model.User;
 
 import java.time.LocalDate;
@@ -29,7 +27,6 @@ public class DoctorMenu {
     private final DoctorDao doctorDao = new DoctorDao();
     private final PatientDao patientDao = new PatientDao();
     private final AppointmentManageDao appointmentDao = new AppointmentManageDao();
-    private final TriageDao triageDao = new TriageDao();
 
     public DoctorMenu(UserDao userDao, ActivityLogDao activityDao, Scanner sc) {
         this.userdao = userDao;
@@ -170,14 +167,6 @@ public class DoctorMenu {
         System.out.println(" Address        : " + ClinicUi.orNA(p.address()));
         System.out.println(" Date Registered: " + ClinicUi.orNA(p.date_registered()));
 
-        TriageRecord vitals = triageDao.getLatestForPatient(patientId);
-        System.out.println("\n--- Latest Recorded Vitals ---");
-        if (vitals == null) {
-            System.out.println(" No vitals recorded yet.");
-        } else {
-            ui.printVitals(vitals);
-        }
-
         ui.appointmentTable(mine.stream().filter(a -> a.patient_id() == patientId).toList(),
                 "MY APPOINTMENTS WITH " + p.full_name().toUpperCase());
         InputHelper.pause();
@@ -227,10 +216,8 @@ public class DoctorMenu {
             return;
         }
 
-        if (appointmentDao.updateStatus(id, newStatus)) {
+        if (appointmentDao.updateStatus(id, newStatus, user.id())) {
             System.out.println(" -> Appointment " + id + " is now " + newStatus + ".");
-            activityDao.log(user.id(), "UPDATE", "appointments", id,
-                    "Doctor set appointment status to " + newStatus + " (" + target.patient_name() + ")");
         } else {
             System.out.println(" -> [ERROR] Failed to update appointment.");
         }

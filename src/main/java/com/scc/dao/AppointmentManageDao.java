@@ -7,6 +7,8 @@ import java.sql.*;
 /** Write operations for appointments (AppointmentDao is read-only, so this extends it). */
 public class AppointmentManageDao extends AppointmentDao {
 
+    private final ActivityLogDao logDao = new ActivityLogDao();
+
     public Appointment getById(int appointmentId) {
         String sql = """
                 SELECT a.appointment_id, a.patient_id, p.full_name AS patient_name,
@@ -55,10 +57,16 @@ public class AppointmentManageDao extends AppointmentDao {
         }
     }
 
-    /** Returns the new appointment_id, or -1 if it failed. */
-    public int book(int patientId, int doctorId, String date, String time, String reason) {
+    /**
+     * CORE BUSINESS PROCESS: books an appointment and writes the activity log.
+     * Returns the new appointment_id, or -1 if it failed.
+     */
+    public int book(int patientId, int doctorId, String date, String time, String reason,
+                    Integer actingUserId) {
         String sql = "INSERT INTO appointments(patient_id, doctor_id, appointment_date, "
                 + "appointment_time, reason, status) VALUES(?, ?, ?, ?, ?, 'SCHEDULED')";
+        int newId = -1;
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, patientId);
@@ -69,41 +77,76 @@ public class AppointmentManageDao extends AppointmentDao {
             if (ps.executeUpdate() > 0) {
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     if (keys.next()) {
-                        return keys.getInt(1);
+                        newId = keys.getInt(1);
                     }
                 }
             }
         } catch (SQLException e) {
             System.err.println("Book appointment failed: " + e.getMessage());
         }
-        return -1;
+
+        if (newId > 0) {
+            Appointment a = getById(newId);
+            String patient = a != null ? a.patient_name() : "Patient #" + patientId;
+            String doctor = a != null ? a.doctor_name() : "Doctor #" + doctorId;
+            logDao.log(actingUserId, "CREATE", "appointments", newId,
+                    "Booked appointment #" + newId + " for " + patient + " with Dr. " + doctor
+                            + " on " + date + " " + time);
+        }
+        return newId;
     }
 
-    public boolean reschedule(int appointmentId, String date, String time) {
+    /** LIFECYCLE CHANGE: reschedule + activity log. */
+    public boolean reschedule(int appointmentId, String date, String time, Integer actingUserId) {
+        Appointment before = getById(appointmentId);
         String sql = "UPDATE appointments SET appointment_date = ?, appointment_time = ? "
                 + "WHERE appointment_id = ? AND status = 'SCHEDULED'";
+        boolean ok = false;
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, date);
             ps.setString(2, time);
             ps.setInt(3, appointmentId);
-            return ps.executeUpdate() > 0;
+            ok = ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("Reschedule failed: " + e.getMessage());
-            return false;
         }
+
+        if (ok) {
+            String from = before != null
+                    ? before.appointment_date() + " " + before.appointment_time() : "N/A";
+            String who = before != null ? " (" + before.patient_name() + ")" : "";
+            logDao.log(actingUserId, "UPDATE", "appointments", appointmentId,
+                    "Rescheduled appointment #" + appointmentId + who + " from " + from
+                            + " to " + date + " " + time);
+        }
+        return ok;
     }
 
-    public boolean updateStatus(int appointmentId, String status) {
+    /** LIFECYCLE CHANGE: status edit (COMPLETED / CANCELLED ...) + activity log. */
+    public boolean updateStatus(int appointmentId, String status, Integer actingUserId) {
+        Appointment before = getById(appointmentId);
+        String newStatus = status.toUpperCase();
         String sql = "UPDATE appointments SET status = ? WHERE appointment_id = ?";
+        boolean ok = false;
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status.toUpperCase());
+            ps.setString(1, newStatus);
             ps.setInt(2, appointmentId);
-            return ps.executeUpdate() > 0;
+            ok = ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("Update appointment status failed: " + e.getMessage());
-            return false;
         }
+
+        if (ok) {
+            String oldStatus = before != null ? before.status() : "UNKNOWN";
+            String who = before != null ? " (" + before.patient_name() + ")" : "";
+            logDao.log(actingUserId, "UPDATE", "appointments", appointmentId,
+                    "Updated appointment #" + appointmentId + who + " status from "
+                            + oldStatus + " to " + newStatus);
+        }
+        return ok;
     }
 }

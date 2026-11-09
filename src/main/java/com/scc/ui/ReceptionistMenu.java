@@ -115,10 +115,9 @@ public class ReceptionistMenu {
             return;
         }
 
-        int newId = patientDao.addPatient(fullName, birth, gender, contact, address);
+        int newId = patientDao.addPatient(fullName, birth, gender, contact, address, user.id());
         if (newId > 0) {
             System.out.println(" -> Patient registered (ID: " + newId + ").");
-            activityDao.log(user.id(), "CREATE", "patients", newId, "Registered patient: " + fullName);
         } else {
             System.out.println(" -> [ERROR] Failed to register patient.");
         }
@@ -167,9 +166,8 @@ public class ReceptionistMenu {
         }
 
         if (patientDao.updatePatient(id, fullName, birth, gender,
-                ClinicUi.emptyToNull(contact), ClinicUi.emptyToNull(address))) {
+                ClinicUi.emptyToNull(contact), ClinicUi.emptyToNull(address), user.id())) {
             System.out.println(" -> Patient ID " + id + " updated successfully!");
-            activityDao.log(user.id(), "UPDATE", "patients", id, "Updated patient record: " + fullName);
         } else {
             System.out.println(" -> [ERROR] Failed to update patient.");
         }
@@ -236,12 +234,10 @@ public class ReceptionistMenu {
             return;
         }
 
-        int newId = appointmentDao.book(patient.patient_id(), doctor.doctor_id(), slot[0], slot[1], reason);
+        int newId = appointmentDao.book(patient.patient_id(), doctor.doctor_id(),
+                slot[0], slot[1], reason, user.id());
         if (newId > 0) {
             System.out.println(" -> Appointment booked (ID: " + newId + ").");
-            activityDao.log(user.id(), "CREATE", "appointments", newId,
-                    "Booked " + patient.full_name() + " with Dr. " + doctor.full_name()
-                            + " on " + slot[0] + " " + slot[1]);
         } else {
             System.out.println(" -> [ERROR] Failed to book appointment.");
         }
@@ -350,11 +346,8 @@ public class ReceptionistMenu {
             return;
         }
 
-        if (appointmentDao.reschedule(target.appointment_id(), slot[0], slot[1])) {
+        if (appointmentDao.reschedule(target.appointment_id(), slot[0], slot[1], user.id())) {
             System.out.println(" -> Appointment rescheduled.");
-            activityDao.log(user.id(), "UPDATE", "appointments", target.appointment_id(),
-                    "Rescheduled " + target.patient_name() + " from " + target.appointment_date() + " "
-                            + target.appointment_time() + " to " + slot[0] + " " + slot[1]);
         } else {
             System.out.println(" -> [ERROR] Failed to reschedule.");
         }
@@ -374,11 +367,8 @@ public class ReceptionistMenu {
             return;
         }
 
-        if (appointmentDao.updateStatus(target.appointment_id(), "CANCELLED")) {
+        if (appointmentDao.updateStatus(target.appointment_id(), "CANCELLED", user.id())) {
             System.out.println(" -> Appointment cancelled.");
-            activityDao.log(user.id(), "UPDATE", "appointments", target.appointment_id(),
-                    "Cancelled appointment of " + target.patient_name() + " on "
-                            + target.appointment_date() + " " + target.appointment_time());
         } else {
             System.out.println(" -> [ERROR] Failed to cancel appointment.");
         }
