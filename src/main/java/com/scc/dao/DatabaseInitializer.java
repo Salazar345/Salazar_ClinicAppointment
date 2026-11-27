@@ -35,6 +35,7 @@ public class DatabaseInitializer {
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
             stmt.execute(logsSql);
+            ClinicSchema.ensureTables();   // creates patients, doctors, appointments
             System.out.println("-> Database tables verified.");
         } catch (SQLException e) {
             System.err.println("Error creating tables: " + e.getMessage());

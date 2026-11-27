@@ -40,10 +40,10 @@ public class AdminMenu {
 
             switch (choice) {
                 case "1" -> manageUserAccounts(admin);
-                case "2" -> manageDoctorRecords();
+                case "2" -> manageDoctorRecords(admin);
                 case "3" -> viewPatientsAndAppointments();
                 case "4" -> reports();
-                case "5" -> activityLogs();
+                case "5" -> new AuditLogMenu(sc).show();
                 case "0" -> {
                     System.out.println("You have been logged out. Goodbye, " + admin.full_name() + "!");
                     activityDao.log(admin.id(), "LOGOUT", "users", admin.id(),
@@ -368,9 +368,9 @@ public class AdminMenu {
         }
     }
 
-    private void manageDoctorRecords() {
+    private void manageDoctorRecords(User admin) {
         System.out.println("\n=== MANAGE DOCTOR RECORDS ===");
-        new DoctorRecordsMenu(userDao, activityDao, sc).show();
+        new DoctorRecordsMenu(userDao, activityDao, sc).show(admin);
     }
 
     private void viewPatientsAndAppointments() {

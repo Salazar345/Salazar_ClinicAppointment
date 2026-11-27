@@ -16,11 +16,17 @@ public class DoctorRecordsMenu {
     private final UserDao userDao;
     private final ActivityLogDao activityDao;
     private final Scanner sc;
+    private Integer actingUserId = null;   // the admin who is performing the action
 
     public DoctorRecordsMenu(UserDao userDao, ActivityLogDao activityDao, Scanner sc) {
         this.userDao = userDao;
         this.activityDao = activityDao;
         this.sc = sc;
+    }
+
+    public void show(User admin) {
+        this.actingUserId = admin.id();
+        show();
     }
 
     public void show() {
@@ -152,7 +158,7 @@ public class DoctorRecordsMenu {
 
         if (newId > 0) {
             System.out.println(" -> Doctor added (ID: " + newId + ").");
-            activityDao.log(null, "CREATE", "doctors", newId,
+            activityDao.log(actingUserId, "CREATE", "doctors", newId,
                     "Admin added doctor record: " + fullName + " (" + specialization + ")");
         } else {
             System.out.println(" -> [ERROR] Failed to add doctor.");
@@ -224,7 +230,7 @@ public class DoctorRecordsMenu {
         if (doctorDao.updateDoctor(doctorId, userId, fullName, specialization,
                 emptyToNull(contact), emptyToNull(days), status)) {
             System.out.println(" -> Doctor ID " + doctorId + " updated successfully!");
-            activityDao.log(null, "UPDATE", "doctors", doctorId,
+            activityDao.log(actingUserId, "UPDATE", "doctors", doctorId,
                     "Updated doctor record: " + fullName + " (" + specialization + "), status " + status);
         } else {
             System.out.println(" -> [ERROR] Failed to update doctor.");
@@ -274,7 +280,7 @@ public class DoctorRecordsMenu {
 
         if (doctorDao.deleteDoctor(target.doctor_id())) {
             System.out.println(" -> Doctor record deleted.");
-            activityDao.log(null, "DELETE", "doctors", target.doctor_id(),
+            activityDao.log(actingUserId, "DELETE", "doctors", target.doctor_id(),
                     "Deleted doctor record: " + target.full_name() + " (" + target.specialization() + ")");
         } else {
             System.out.println(" -> [ERROR] Failed to delete doctor.");
